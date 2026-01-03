@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stop_user_summary_reflection = exports.start_user_summary_reflection = exports.auto_update_user_summaries = exports.update_user_summary = exports.gen_user_summary_async = void 0;
 const db_1 = require("../core/db");
@@ -49,13 +82,14 @@ const gen_user_summary_async = async (user_id) => {
     return gen_user_summary(mems);
 };
 exports.gen_user_summary_async = gen_user_summary_async;
-const update_user_summary = async (user_id) => {
+const update_user_summary = async (user_id, tenant_id) => {
     try {
         const summary = await (0, exports.gen_user_summary_async)(user_id);
         const now = Date.now();
         const existing = await db_1.q.get_user.get(user_id);
         if (!existing) {
-            await db_1.q.ins_user.run(user_id, summary, 0, now, now);
+            const { env } = await Promise.resolve().then(() => __importStar(require("../core/cfg")));
+            await db_1.q.ins_user.run(...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []), user_id, summary, 0, now, now);
         }
         else {
             await db_1.q.upd_user_summary.run(user_id, summary, now);
@@ -68,11 +102,19 @@ const update_user_summary = async (user_id) => {
 exports.update_user_summary = update_user_summary;
 const auto_update_user_summaries = async () => {
     const all_mems = await db_1.q.all_mem.all(10000, 0);
+    const user_tenant_map = new Map();
+    // Build map of user_id -> tenant_id from memories
+    for (const m of all_mems) {
+        if (m.user_id && m.tenant_id) {
+            user_tenant_map.set(m.user_id, m.tenant_id);
+        }
+    }
     const user_ids = new Set(all_mems.map((m) => m.user_id).filter(Boolean));
     let updated = 0;
     for (const uid of user_ids) {
         try {
-            await (0, exports.update_user_summary)(uid);
+            const tenant_id = user_tenant_map.get(uid);
+            await (0, exports.update_user_summary)(uid, tenant_id);
             updated++;
         }
         catch (e) {

@@ -328,7 +328,7 @@ if (is_pg) {
         ins_mem: {
             run: (...p) =>
                 run_async(
-                    `insert into ${m}(id,user_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) on conflict(${env.multi_tenant ? 'tenant_id, id' : 'id'}) do update set user_id=excluded.user_id,segment=excluded.segment,content=excluded.content,simhash=excluded.simhash,primary_sector=excluded.primary_sector,tags=excluded.tags,meta=excluded.meta,created_at=excluded.created_at,updated_at=excluded.updated_at,last_seen_at=excluded.last_seen_at,salience=excluded.salience,decay_lambda=excluded.decay_lambda,version=excluded.version,mean_dim=excluded.mean_dim,mean_vec=excluded.mean_vec,compressed_vec=excluded.compressed_vec,feedback_score=excluded.feedback_score`,
+                    `insert into ${m}(${env.multi_tenant ? 'tenant_id,' : ''}id,user_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values(${env.multi_tenant ? '$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19' : '$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18'}) on conflict(${env.multi_tenant ? 'tenant_id, id' : 'id'}) do update set user_id=excluded.user_id,segment=excluded.segment,content=excluded.content,simhash=excluded.simhash,primary_sector=excluded.primary_sector,tags=excluded.tags,meta=excluded.meta,created_at=excluded.created_at,updated_at=excluded.updated_at,last_seen_at=excluded.last_seen_at,salience=excluded.salience,decay_lambda=excluded.decay_lambda,version=excluded.version,mean_dim=excluded.mean_dim,mean_vec=excluded.mean_vec,compressed_vec=excluded.compressed_vec,feedback_score=excluded.feedback_score`,
                     p,
                 ),
         },
@@ -426,7 +426,7 @@ if (is_pg) {
         ins_waypoint: {
             run: (...p) =>
                 run_async(
-                    `insert into ${w}(src_id,dst_id,user_id,weight,created_at,updated_at) values($1,$2,$3,$4,$5,$6) on conflict(${env.multi_tenant ? 'tenant_id, src_id, dst_id' : 'src_id, user_id'}) do update set dst_id=excluded.dst_id,weight=excluded.weight,updated_at=excluded.updated_at`,
+                    `insert into ${w}(${env.multi_tenant ? 'tenant_id,' : ''}src_id,dst_id,user_id,weight,created_at,updated_at) values(${env.multi_tenant ? '$1,$2,$3,$4,$5,$6,$7' : '$1,$2,$3,$4,$5,$6'}) on conflict(${env.multi_tenant ? 'tenant_id, src_id, dst_id' : 'src_id, user_id'}) do update set dst_id=excluded.dst_id,weight=excluded.weight,updated_at=excluded.updated_at`,
                     p,
                 ),
         },
@@ -497,7 +497,7 @@ if (is_pg) {
         ins_user: {
             run: (...p) =>
                 run_async(
-                    `insert into "${sc}"."openmemory_users"(user_id,summary,reflection_count,created_at,updated_at) values($1,$2,$3,$4,$5) on conflict(${env.multi_tenant ? 'tenant_id, user_id' : 'user_id'}) do update set summary=excluded.summary,reflection_count=excluded.reflection_count,updated_at=excluded.updated_at`,
+                    `insert into "${sc}"."openmemory_users"(${env.multi_tenant ? 'tenant_id,' : ''}user_id,summary,reflection_count,created_at,updated_at) values(${env.multi_tenant ? '$1,$2,$3,$4,$5,$6' : '$1,$2,$3,$4,$5'}) on conflict(${env.multi_tenant ? 'tenant_id, user_id' : 'user_id'}) do update set summary=excluded.summary,reflection_count=excluded.reflection_count,updated_at=excluded.updated_at`,
                     p,
                 ),
         },

@@ -240,7 +240,7 @@ if (is_pg) {
     const clean = (s) => s ? s.replace(/"/g, "").replace(/\s+OR\s+/gi, " OR ") : "";
     exports.q = q = {
         ins_mem: {
-            run: (...p) => run_async(`insert into ${m}(id,user_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) on conflict(id) do update set user_id=excluded.user_id,segment=excluded.segment,content=excluded.content,simhash=excluded.simhash,primary_sector=excluded.primary_sector,tags=excluded.tags,meta=excluded.meta,created_at=excluded.created_at,updated_at=excluded.updated_at,last_seen_at=excluded.last_seen_at,salience=excluded.salience,decay_lambda=excluded.decay_lambda,version=excluded.version,mean_dim=excluded.mean_dim,mean_vec=excluded.mean_vec,compressed_vec=excluded.compressed_vec,feedback_score=excluded.feedback_score`, p),
+            run: (...p) => run_async(`insert into ${m}(${cfg_1.env.multi_tenant ? 'tenant_id,' : ''}id,user_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values(${cfg_1.env.multi_tenant ? '$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19' : '$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18'}) on conflict(${cfg_1.env.multi_tenant ? 'tenant_id, id' : 'id'}) do update set user_id=excluded.user_id,segment=excluded.segment,content=excluded.content,simhash=excluded.simhash,primary_sector=excluded.primary_sector,tags=excluded.tags,meta=excluded.meta,created_at=excluded.created_at,updated_at=excluded.updated_at,last_seen_at=excluded.last_seen_at,salience=excluded.salience,decay_lambda=excluded.decay_lambda,version=excluded.version,mean_dim=excluded.mean_dim,mean_vec=excluded.mean_vec,compressed_vec=excluded.compressed_vec,feedback_score=excluded.feedback_score`, p),
         },
         upd_mean_vec: {
             run: (...p) => run_async(`update ${m} set mean_dim=$2,mean_vec=$3 where id=$1`, p),
@@ -291,7 +291,7 @@ if (is_pg) {
         },
         // Vector operations removed
         ins_waypoint: {
-            run: (...p) => run_async(`insert into ${w}(src_id,dst_id,user_id,weight,created_at,updated_at) values($1,$2,$3,$4,$5,$6) on conflict(src_id,user_id) do update set dst_id=excluded.dst_id,weight=excluded.weight,updated_at=excluded.updated_at`, p),
+            run: (...p) => run_async(`insert into ${w}(${cfg_1.env.multi_tenant ? 'tenant_id,' : ''}src_id,dst_id,user_id,weight,created_at,updated_at) values(${cfg_1.env.multi_tenant ? '$1,$2,$3,$4,$5,$6,$7' : '$1,$2,$3,$4,$5,$6'}) on conflict(${cfg_1.env.multi_tenant ? 'tenant_id, src_id, dst_id' : 'src_id, user_id'}) do update set dst_id=excluded.dst_id,weight=excluded.weight,updated_at=excluded.updated_at`, p),
         },
         get_neighbors: {
             all: (src) => all_async(`select dst_id,weight from ${w} where src_id=$1 order by weight desc`, [src]),
@@ -327,7 +327,7 @@ if (is_pg) {
             all: (user_id, limit, offset) => all_async(`select * from ${m} where user_id=$1 order by created_at desc limit $2 offset $3`, [user_id, limit, offset]),
         },
         ins_user: {
-            run: (...p) => run_async(`insert into "${sc}"."openmemory_users"(user_id,summary,reflection_count,created_at,updated_at) values($1,$2,$3,$4,$5) on conflict(user_id) do update set summary=excluded.summary,reflection_count=excluded.reflection_count,updated_at=excluded.updated_at`, p),
+            run: (...p) => run_async(`insert into "${sc}"."openmemory_users"(${cfg_1.env.multi_tenant ? 'tenant_id,' : ''}user_id,summary,reflection_count,created_at,updated_at) values(${cfg_1.env.multi_tenant ? '$1,$2,$3,$4,$5,$6' : '$1,$2,$3,$4,$5'}) on conflict(${cfg_1.env.multi_tenant ? 'tenant_id, user_id' : 'user_id'}) do update set summary=excluded.summary,reflection_count=excluded.reflection_count,updated_at=excluded.updated_at`, p),
         },
         get_user: {
             get: (user_id) => get_async(`select * from "${sc}"."openmemory_users" where user_id=$1`, [user_id]),
