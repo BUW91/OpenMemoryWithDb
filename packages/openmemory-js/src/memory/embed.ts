@@ -550,14 +550,16 @@ export async function embedMultiSector(
     tenant_id?: string,
 ): Promise<EmbeddingResult[]> {
     const r: EmbeddingResult[] = [];
-    await q.ins_log.run(
-        ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
-        id,
-        "multi-sector",
-        "pending",
-        Date.now(),
-        null
-    );
+    if (env.embed_logs_enabled) {
+        await q.ins_log.run(
+            ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
+            id,
+            "multi-sector",
+            "pending",
+            Date.now(),
+            null
+        );
+    }
     for (let a = 0; a < 3; a++) {
         try {
             const simp = env.embed_mode === "simple";
@@ -608,15 +610,19 @@ export async function embedMultiSector(
                     }
                 }
             }
-            await q.upd_log.run("completed", null, id);
+            if (env.embed_logs_enabled) {
+                await q.upd_log.run("completed", null, id);
+            }
             return r;
         } catch (e) {
             if (a === 2) {
-                await q.upd_log.run(
-                    "failed",
-                    e instanceof Error ? e.message : String(e),
-                    id,
-                );
+                if (env.embed_logs_enabled) {
+                    await q.upd_log.run(
+                        "failed",
+                        e instanceof Error ? e.message : String(e),
+                        id,
+                    );
+                }
                 throw e;
             }
             await new Promise((x) => setTimeout(x, 1000 * Math.pow(2, a)));
