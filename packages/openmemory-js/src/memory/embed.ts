@@ -546,9 +546,17 @@ export async function embedMultiSector(
     txt: string,
     secs: string[],
     chunks?: Array<{ text: string }>,
+    tenant_id?: string,
 ): Promise<EmbeddingResult[]> {
     const r: EmbeddingResult[] = [];
-    await q.ins_log.run(id, "multi-sector", "pending", Date.now(), null);
+    await q.ins_log.run(
+        ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
+        id,
+        "multi-sector",
+        "pending",
+        Date.now(),
+        null
+    );
     for (let a = 0; a < 3; a++) {
         try {
             const simp = env.embed_mode === "simple";

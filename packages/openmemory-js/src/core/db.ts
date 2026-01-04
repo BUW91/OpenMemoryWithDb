@@ -468,7 +468,7 @@ if (is_pg) {
         ins_log: {
             run: (...p) =>
                 run_async(
-                    `insert into ${l}(id,model,status,ts,err) values($1,$2,$3,$4,$5) on conflict(id) do update set model=excluded.model,status=excluded.status,ts=excluded.ts,err=excluded.err`,
+                    `insert into ${l}(${env.multi_tenant ? 'tenant_id,' : ''}id,model,status,ts,err) values(${env.multi_tenant ? '$1,$2,$3,$4,$5,$6' : '$1,$2,$3,$4,$5'}) on conflict(id) do update set ${env.multi_tenant ? 'tenant_id=excluded.tenant_id,' : ''}model=excluded.model,status=excluded.status,ts=excluded.ts,err=excluded.err`,
                     p,
                 ),
         },
@@ -916,7 +916,7 @@ if (is_pg) {
         ins_log: {
             run: (...p) =>
                 exec(
-                    "insert or replace into embed_logs(id,model,status,ts,err) values(?,?,?,?,?)",
+                    "insert or replace into embed_logs(tenant_id,id,model,status,ts,err) values(?,?,?,?,?,?)",
                     p,
                 ),
         },

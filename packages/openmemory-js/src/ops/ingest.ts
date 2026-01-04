@@ -86,6 +86,7 @@ const mkChild = async (
     rid: string,
     meta?: Record<string, unknown>,
     user_id?: string | null,
+    tenant_id?: string,
 ) => {
     const r = await add_hsg_memory(
         txt,
@@ -98,6 +99,7 @@ const mkChild = async (
             parent_id: rid,
         },
         user_id || undefined,
+        tenant_id,
     );
     return r.id;
 };
@@ -188,6 +190,7 @@ export async function ingestDocument(
                     rid,
                     meta,
                     user_id,
+                    tenant_id,
                 );
                 cids.push(cid);
                 await link(rid, cid, i, user_id, tenant_id);
@@ -223,6 +226,7 @@ export async function ingestURL(
     meta?: Record<string, unknown>,
     cfg?: ingestion_cfg,
     user_id?: string | null,
+    tenant_id?: string,
 ): Promise<IngestionResult> {
     const { extractURL } = await import("./extract");
     const ex = await extractURL(url);
@@ -241,6 +245,7 @@ export async function ingestURL(
                 ingested_at: now(),
             },
             user_id || undefined,
+            tenant_id,
         );
         return {
             root_memory_id: r.id,
@@ -259,7 +264,7 @@ export async function ingestURL(
     const cids: string[] = [];
 
     try {
-        rid = await mkRoot(ex.text, ex, { ...meta, source_url: url }, user_id);
+        rid = await mkRoot(ex.text, ex, { ...meta, source_url: url }, user_id, tenant_id);
         console.log(`[INGEST] Root memory for URL: ${rid}`);
         for (let i = 0; i < secs.length; i++) {
             try {
@@ -270,9 +275,10 @@ export async function ingestURL(
                     rid,
                     { ...meta, source_url: url },
                     user_id,
+                    tenant_id,
                 );
                 cids.push(cid);
-                await link(rid, cid, i, user_id);
+                await link(rid, cid, i, user_id, tenant_id);
                 console.log(
                     `[INGEST] URL section ${i + 1}/${secs.length} processed: ${cid}`,
                 );

@@ -1159,6 +1159,7 @@ export async function add_hsg_memory(
             content,
             all_sectors,
             use_chunking ? chunks : undefined,
+            resolved_tenant_id,
         );
         for (const result of emb_res) {
             await vector_store.storeVector(
@@ -1181,7 +1182,7 @@ export async function add_hsg_memory(
             await q.upd_compressed_vec.run(comp_buf, id);
         }
 
-        await create_single_waypoint(id, mean_vec, now, user_id);
+        await create_single_waypoint(id, mean_vec, now, user_id, resolved_tenant_id);
         await transaction.commit();
         return {
             id,
@@ -1234,6 +1235,7 @@ export async function update_memory(
                 new_content,
                 all_sectors,
                 use_chunking ? chunks : undefined,
+                resolved_tenant_id,
             );
             for (const result of emb_res) {
                 await vector_store.storeVector(
