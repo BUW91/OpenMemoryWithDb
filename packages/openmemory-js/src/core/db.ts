@@ -1,6 +1,7 @@
 import sqlite3 from "sqlite3";
 import { Pool, PoolClient } from "pg";
 import { env } from "./cfg";
+import { logger } from "./logger";
 import fs from "node:fs";
 import path from "node:path";
 import { VectorStore } from "./vector_store";
@@ -142,7 +143,7 @@ if (is_pg) {
                 const admin = pool("postgres");
                 try {
                     await admin.query(`CREATE DATABASE ${db_name}`);
-                    console.error(`[DB] Created ${db_name}`);
+                    logger.info(`[DB] Created ${db_name}`);
                 } catch (e: any) {
                     if (e.code !== "42P04") throw e;
                 } finally {
@@ -297,7 +298,7 @@ if (is_pg) {
         // Initialize VectorStore
         if (env.vector_backend === "valkey") {
             vector_store = new ValkeyVectorStore();
-            console.error("[DB] Using Valkey VectorStore");
+            logger.info("[DB] Using Valkey VectorStore");
         } else {
             const vt = process.env.OM_VECTOR_TABLE || "openmemory_vectors";
             vector_store = new PostgresVectorStore(
@@ -306,11 +307,11 @@ if (is_pg) {
                 env.pgvector_enabled  // Pass pgvector flag
             );
             const mode = env.pgvector_enabled ? 'pgvector (native)' : 'BYTEA (in-memory)';
-            console.error(`[DB] Using Postgres VectorStore [${mode}] with table: ${v}`);
+            logger.info(`[DB] Using Postgres VectorStore [${mode}] with table: ${v}`);
         }
     };
     init().catch((err) => {
-        console.error("[DB] Init failed:", err);
+        logger.error("[DB] Init failed:", err);
         process.exit(1);
     });
     const safe_exec = async (sql: string, p: any[] = []) => {
@@ -708,7 +709,7 @@ if (is_pg) {
 
     if (env.vector_backend === "valkey") {
         vector_store = new ValkeyVectorStore();
-        console.error("[DB] Using Valkey VectorStore");
+        logger.info("[DB] Using Valkey VectorStore");
     } else {
         // SQLite doesn't support pgvector, always use BYTEA/BLOB with in-memory search
         vector_store = new PostgresVectorStore(
@@ -716,7 +717,7 @@ if (is_pg) {
             sqlite_vector_table,
             false  // pgvector not supported in SQLite
         );
-        console.error(`[DB] Using SQLite VectorStore [BLOB/in-memory] with table: ${sqlite_vector_table}`);
+        logger.info(`[DB] Using SQLite VectorStore [BLOB/in-memory] with table: ${sqlite_vector_table}`);
     }
 
     // Simple Mutex for transaction serialization
@@ -983,7 +984,7 @@ export const log_maint_op = async (
             : "insert into stats(type,count,ts) values(?,?,?)";
         await run_async(sql, [type, cnt, Date.now()]);
     } catch (e) {
-        console.error("[DB] Maintenance log error:", e);
+        logger.error("[DB] Maintenance log error:", e);
     }
 };
 

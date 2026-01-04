@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { canonical_token_set } from "../utils/text";
 import { inc_q, dec_q, on_query_hit } from "./decay";
 import { env, tier } from "../core/cfg";
+import { logger } from "../core/logger";
 import { resolveTenantId } from "../core/tenant";
 import { cos_sim, buf_to_vec, vec_to_buf } from "../utils/index";
 export interface sector_cfg {
@@ -1065,7 +1066,7 @@ async function ensure_user_exists(user_id: string, tenant_id?: string): Promise<
             );
         }
     } catch (error) {
-        console.error(`[HSG] Failed to ensure user ${user_id} exists:`, error);
+        logger.error(`[HSG] Failed to ensure user ${user_id} exists:`, error);
         // Don't throw, proceed with memory creation (legacy behavior)
     }
 }
@@ -1118,8 +1119,7 @@ export async function add_hsg_memory(
         const seg_cnt = seg_cnt_res?.c ?? 0;
         if (seg_cnt >= env.seg_size) {
             cur_seg++;
-            // Use stderr for debug output to avoid breaking MCP JSON-RPC protocol
-            console.error(
+            logger.info(
                 `[HSG] Rotated to segment ${cur_seg} (previous segment full: ${seg_cnt} memories)`,
             );
         }

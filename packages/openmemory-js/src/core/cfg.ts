@@ -115,4 +115,6 @@ export const env = {
     pgvector_enabled: bool(process.env.OM_PGVECTOR_ENABLED),
     pgvector_index_type: str(process.env.OM_PGVECTOR_INDEX_TYPE, "hnsw"),
     pgvector_distance: str(process.env.OM_PGVECTOR_DISTANCE, "cosine"),
+    // Logging settings
+    logging_enabled: bool(process.env.OM_LOGGING_ENABLED),
 };
