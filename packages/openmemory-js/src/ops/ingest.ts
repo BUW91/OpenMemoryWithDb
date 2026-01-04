@@ -39,7 +39,9 @@ const mkRoot = async (
     ex: ExtractionResult,
     meta?: Record<string, unknown>,
     user_id?: string | null,
+    tenant_id?: string,
 ) => {
+    const { env } = await import("../core/cfg");
     const sum = txt.length > 500 ? txt.slice(0, 500) + "..." : txt;
     const cnt = `[Document: ${ex.metadata.content_type.toUpperCase()}]\n\n${sum}\n\n[Full content split across ${Math.ceil(txt.length / SEC)} sections]`;
     const id = rid(),
@@ -47,6 +49,7 @@ const mkRoot = async (
     await transaction.begin();
     try {
         await q.ins_mem.run(
+            ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
             id,
             cnt,
             "reflective",
@@ -104,11 +107,21 @@ const link = async (
     cid: string,
     idx: number,
     user_id?: string | null,
+    tenant_id?: string,
 ) => {
+    const { env } = await import("../core/cfg");
     const ts = now();
     await transaction.begin();
     try {
-        await q.ins_waypoint.run(rid, cid, user_id || "anonymous", 1.0, ts, ts);
+        await q.ins_waypoint.run(
+            ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
+            rid,
+            cid,
+            user_id || "anonymous",
+            1.0,
+            ts,
+            ts
+        );
         await transaction.commit();
         console.log(
             `[INGEST] Linked: ${rid.slice(0, 8)} -> ${cid.slice(0, 8)} (section ${idx})`,
@@ -126,6 +139,7 @@ export async function ingestDocument(
     meta?: Record<string, unknown>,
     cfg?: ingestion_cfg,
     user_id?: string | null,
+    tenant_id?: string,
 ): Promise<IngestionResult> {
     const th = cfg?.lg_thresh || LG,
         sz = cfg?.sec_sz || SEC;
@@ -144,6 +158,7 @@ export async function ingestDocument(
                 ingested_at: now(),
             },
             user_id || undefined,
+            tenant_id,
         );
         return {
             root_memory_id: r.id,
@@ -162,7 +177,7 @@ export async function ingestDocument(
     const cids: string[] = [];
 
     try {
-        rid = await mkRoot(text, ex, meta, user_id);
+        rid = await mkRoot(text, ex, meta, user_id, tenant_id);
         console.log(`[INGEST] Root memory created: ${rid}`);
         for (let i = 0; i < secs.length; i++) {
             try {
@@ -175,7 +190,7 @@ export async function ingestDocument(
                     user_id,
                 );
                 cids.push(cid);
-                await link(rid, cid, i, user_id);
+                await link(rid, cid, i, user_id, tenant_id);
                 console.log(
                     `[INGEST] Section ${i + 1}/${secs.length} processed: ${cid}`,
                 );

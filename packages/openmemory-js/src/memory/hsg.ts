@@ -451,11 +451,13 @@ export async function create_cross_sector_waypoints(
     prim_sec: string,
     add_secs: string[],
     user_id?: string | null,
+    tenant_id?: string,
 ): Promise<void> {
     const now = Date.now();
     const wt = 0.5;
     for (const sec of add_secs) {
         await q.ins_waypoint.run(
+            ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
             prim_id,
             `${prim_id}:${sec}`,
             user_id || "anonymous",
@@ -464,6 +466,7 @@ export async function create_cross_sector_waypoints(
             now,
         );
         await q.ins_waypoint.run(
+            ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
             `${prim_id}:${sec}`,
             prim_id,
             user_id || "anonymous",
@@ -505,6 +508,7 @@ export async function create_single_waypoint(
     new_mean: number[],
     ts: number,
     user_id?: string | null,
+    tenant_id?: string,
 ): Promise<void> {
     const thresh = 0.75;
     const mems = user_id
@@ -521,6 +525,7 @@ export async function create_single_waypoint(
     }
     if (best) {
         await q.ins_waypoint.run(
+            ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
             new_id,
             best.id,
             user_id || "anonymous",
@@ -529,7 +534,15 @@ export async function create_single_waypoint(
             ts,
         );
     } else {
-        await q.ins_waypoint.run(new_id, new_id, user_id || "anonymous", 1.0, ts, ts);
+        await q.ins_waypoint.run(
+            ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
+            new_id,
+            new_id,
+            user_id || "anonymous",
+            1.0,
+            ts,
+            ts
+        );
     }
 }
 export async function create_inter_mem_waypoints(
@@ -550,6 +563,7 @@ export async function create_inter_mem_waypoints(
         const sim = cos_sim(new Float32Array(new_vec), new Float32Array(ex_vec));
         if (sim >= thresh) {
             await q.ins_waypoint.run(
+                ...(env.multi_tenant ? [resolved_tenant_id] : []),
                 new_id,
                 vr.id,
                 user_id || "anonymous",
@@ -558,6 +572,7 @@ export async function create_inter_mem_waypoints(
                 ts,
             );
             await q.ins_waypoint.run(
+                ...(env.multi_tenant ? [resolved_tenant_id] : []),
                 vr.id,
                 new_id,
                 user_id || "anonymous",
@@ -573,6 +588,7 @@ export async function create_contextual_waypoints(
     rel_ids: string[],
     base_wt: number = 0.3,
     user_id?: string | null,
+    tenant_id?: string,
 ): Promise<void> {
     const now = Date.now();
     for (const rel_id of rel_ids) {
@@ -583,6 +599,7 @@ export async function create_contextual_waypoints(
             await q.upd_waypoint.run(mem_id, new_wt, now, rel_id);
         } else {
             await q.ins_waypoint.run(
+                ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
                 mem_id,
                 rel_id,
                 user_id || "anonymous",
@@ -740,7 +757,16 @@ setInterval(async () => {
                 cur_wt + hybrid_params.eta * (1 - cur_wt) * temp_fact,
             );
             const user_id = wp?.user_id || memA?.user_id || memB?.user_id || "anonymous";
-            await q.ins_waypoint.run(a, b, user_id, new_wt, wp?.created_at || now, now);
+            const tenant_id = memA?.tenant_id || memB?.tenant_id || env.default_tenant_id;
+            await q.ins_waypoint.run(
+                ...(env.multi_tenant ? [tenant_id] : []),
+                a,
+                b,
+                user_id,
+                new_wt,
+                wp?.created_at || now,
+                now
+            );
         } catch (e) { }
     }
 }, 1000);
@@ -1025,11 +1051,12 @@ export async function run_decay_process(): Promise<{
 }
 
 // Helper to ensure user exists
-async function ensure_user_exists(user_id: string): Promise<void> {
+async function ensure_user_exists(user_id: string, tenant_id?: string): Promise<void> {
     try {
         const existing = await q.get_user.get(user_id);
         if (!existing) {
             await q.ins_user.run(
+                ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
                 user_id,
                 "User profile initializing...", // Initial summary
                 0, // Reflection count
@@ -1076,7 +1103,7 @@ export async function add_hsg_memory(
 
     // Ensure user exists in the users table
     if (user_id) {
-        await ensure_user_exists(user_id);
+        await ensure_user_exists(user_id, resolved_tenant_id);
     }
 
     const chunks = chunk_text(content);
@@ -1107,6 +1134,7 @@ export async function add_hsg_memory(
             Math.min(1, 0.4 + 0.1 * classification.additional.length),
         );
         await q.ins_mem.run(
+            ...(env.multi_tenant ? [resolved_tenant_id] : []),
             id,
             user_id || "anonymous",
             cur_seg,

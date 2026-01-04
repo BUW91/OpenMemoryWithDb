@@ -53,14 +53,22 @@ export const gen_user_summary_async = async (
     return gen_user_summary(mems);
 };
 
-export const update_user_summary = async (user_id: string): Promise<void> => {
+export const update_user_summary = async (user_id: string, tenant_id?: string): Promise<void> => {
     try {
         const summary = await gen_user_summary_async(user_id);
         const now = Date.now();
 
         const existing = await q.get_user.get(user_id);
         if (!existing) {
-            await q.ins_user.run(user_id, summary, 0, now, now);
+            const { env } = await import("../core/cfg");
+            await q.ins_user.run(
+                ...(env.multi_tenant ? [tenant_id || env.default_tenant_id] : []),
+                user_id,
+                summary,
+                0,
+                now,
+                now
+            );
         } else {
             await q.upd_user_summary.run(user_id, summary, now);
         }
@@ -73,12 +81,22 @@ export const auto_update_user_summaries = async (): Promise<{
     updated: number;
 }> => {
     const all_mems = await q.all_mem.all(10000, 0);
+    const user_tenant_map = new Map<string, string>();
+
+    // Build map of user_id -> tenant_id from memories
+    for (const m of all_mems) {
+        if (m.user_id && m.tenant_id) {
+            user_tenant_map.set(m.user_id, m.tenant_id);
+        }
+    }
+
     const user_ids = new Set(all_mems.map((m) => m.user_id).filter(Boolean));
 
     let updated = 0;
     for (const uid of user_ids) {
         try {
-            await update_user_summary(uid as string);
+            const tenant_id = user_tenant_map.get(uid as string);
+            await update_user_summary(uid as string, tenant_id);
             updated++;
         } catch (e) {
             console.error(`[USER_SUMMARY] Failed for ${uid}:`, e);

@@ -396,12 +396,12 @@ function compute_hybrid_score(sim, tok_ov, wp_wt, rec_sc, keyword_score = 0, tag
     return sigmoid(raw);
 }
 const db_1 = require("../core/db");
-async function create_cross_sector_waypoints(prim_id, prim_sec, add_secs, user_id) {
+async function create_cross_sector_waypoints(prim_id, prim_sec, add_secs, user_id, tenant_id) {
     const now = Date.now();
     const wt = 0.5;
     for (const sec of add_secs) {
-        await db_1.q.ins_waypoint.run(prim_id, `${prim_id}:${sec}`, user_id || "anonymous", wt, now, now);
-        await db_1.q.ins_waypoint.run(`${prim_id}:${sec}`, prim_id, user_id || "anonymous", wt, now, now);
+        await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [tenant_id || cfg_1.env.default_tenant_id] : []), prim_id, `${prim_id}:${sec}`, user_id || "anonymous", wt, now, now);
+        await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [tenant_id || cfg_1.env.default_tenant_id] : []), `${prim_id}:${sec}`, prim_id, user_id || "anonymous", wt, now, now);
     }
 }
 function calc_mean_vec(emb_res, secs) {
@@ -424,7 +424,7 @@ function calc_mean_vec(emb_res, secs) {
         exports.hybrid_params.epsilon;
     return wsum.map((v) => v / norm);
 }
-async function create_single_waypoint(new_id, new_mean, ts, user_id) {
+async function create_single_waypoint(new_id, new_mean, ts, user_id, tenant_id) {
     const thresh = 0.75;
     const mems = user_id
         ? await db_1.q.all_mem_by_user.all(user_id, 1000, 0)
@@ -440,10 +440,10 @@ async function create_single_waypoint(new_id, new_mean, ts, user_id) {
         }
     }
     if (best) {
-        await db_1.q.ins_waypoint.run(new_id, best.id, user_id || "anonymous", best.similarity, ts, ts);
+        await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [tenant_id || cfg_1.env.default_tenant_id] : []), new_id, best.id, user_id || "anonymous", best.similarity, ts, ts);
     }
     else {
-        await db_1.q.ins_waypoint.run(new_id, new_id, user_id || "anonymous", 1.0, ts, ts);
+        await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [tenant_id || cfg_1.env.default_tenant_id] : []), new_id, new_id, user_id || "anonymous", 1.0, ts, ts);
     }
 }
 async function create_inter_mem_waypoints(new_id, prim_sec, new_vec, ts, user_id, tenant_id) {
@@ -457,12 +457,12 @@ async function create_inter_mem_waypoints(new_id, prim_sec, new_vec, ts, user_id
         const ex_vec = vr.vector;
         const sim = (0, index_1.cos_sim)(new Float32Array(new_vec), new Float32Array(ex_vec));
         if (sim >= thresh) {
-            await db_1.q.ins_waypoint.run(new_id, vr.id, user_id || "anonymous", wt, ts, ts);
-            await db_1.q.ins_waypoint.run(vr.id, new_id, user_id || "anonymous", wt, ts, ts);
+            await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [resolved_tenant_id] : []), new_id, vr.id, user_id || "anonymous", wt, ts, ts);
+            await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [resolved_tenant_id] : []), vr.id, new_id, user_id || "anonymous", wt, ts, ts);
         }
     }
 }
-async function create_contextual_waypoints(mem_id, rel_ids, base_wt = 0.3, user_id) {
+async function create_contextual_waypoints(mem_id, rel_ids, base_wt = 0.3, user_id, tenant_id) {
     const now = Date.now();
     for (const rel_id of rel_ids) {
         if (mem_id === rel_id)
@@ -473,7 +473,7 @@ async function create_contextual_waypoints(mem_id, rel_ids, base_wt = 0.3, user_
             await db_1.q.upd_waypoint.run(mem_id, new_wt, now, rel_id);
         }
         else {
-            await db_1.q.ins_waypoint.run(mem_id, rel_id, user_id || "anonymous", base_wt, now, now);
+            await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [tenant_id || cfg_1.env.default_tenant_id] : []), mem_id, rel_id, user_id || "anonymous", base_wt, now, now);
         }
     }
 }
@@ -595,7 +595,8 @@ setInterval(async () => {
             const cur_wt = wp?.weight || 0;
             const new_wt = Math.min(1, cur_wt + exports.hybrid_params.eta * (1 - cur_wt) * temp_fact);
             const user_id = wp?.user_id || memA?.user_id || memB?.user_id || "anonymous";
-            await db_1.q.ins_waypoint.run(a, b, user_id, new_wt, wp?.created_at || now, now);
+            const tenant_id = memA?.tenant_id || memB?.tenant_id || cfg_1.env.default_tenant_id;
+            await db_1.q.ins_waypoint.run(...(cfg_1.env.multi_tenant ? [tenant_id] : []), a, b, user_id, new_wt, wp?.created_at || now, now);
         }
         catch (e) { }
     }
@@ -823,11 +824,11 @@ async function run_decay_process() {
     return { processed: p, decayed: d };
 }
 // Helper to ensure user exists
-async function ensure_user_exists(user_id) {
+async function ensure_user_exists(user_id, tenant_id) {
     try {
         const existing = await db_1.q.get_user.get(user_id);
         if (!existing) {
-            await db_1.q.ins_user.run(user_id, "User profile initializing...", // Initial summary
+            await db_1.q.ins_user.run(...(cfg_1.env.multi_tenant ? [tenant_id || cfg_1.env.default_tenant_id] : []), user_id, "User profile initializing...", // Initial summary
             0, // Reflection count
             Date.now(), Date.now());
         }
@@ -857,7 +858,7 @@ async function add_hsg_memory(content, tags, metadata, user_id, tenant_id) {
     const now = Date.now();
     // Ensure user exists in the users table
     if (user_id) {
-        await ensure_user_exists(user_id);
+        await ensure_user_exists(user_id, resolved_tenant_id);
     }
     const chunks = (0, chunking_1.chunk_text)(content);
     const use_chunking = chunks.length > 1;
@@ -877,7 +878,7 @@ async function add_hsg_memory(content, tags, metadata, user_id, tenant_id) {
         const stored_content = extract_essence(content, classification.primary, cfg_1.env.summary_max_length);
         const sec_cfg = exports.sector_configs[classification.primary];
         const init_sal = Math.max(0, Math.min(1, 0.4 + 0.1 * classification.additional.length));
-        await db_1.q.ins_mem.run(id, user_id || "anonymous", cur_seg, stored_content, simhash, classification.primary, tags || null, JSON.stringify(metadata || {}), now, now, now, init_sal, sec_cfg.decay_lambda, 1, null, null, null, // compressed_vec
+        await db_1.q.ins_mem.run(...(cfg_1.env.multi_tenant ? [resolved_tenant_id] : []), id, user_id || "anonymous", cur_seg, stored_content, simhash, classification.primary, tags || null, JSON.stringify(metadata || {}), now, now, now, init_sal, sec_cfg.decay_lambda, 1, null, null, null, // compressed_vec
         0);
         const emb_res = await (0, embed_1.embedMultiSector)(id, content, all_sectors, use_chunking ? chunks : undefined);
         for (const result of emb_res) {
